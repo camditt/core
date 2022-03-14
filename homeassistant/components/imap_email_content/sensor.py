@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import deque
+import base64
 import datetime
 import email
 import imaplib
@@ -224,6 +225,8 @@ class EmailContentSensor(SensorEntity):
             if part.get_content_type() == CONTENT_TYPE_TEXT_PLAIN:
                 if message_text is None:
                     message_text = part.get_payload()
+                if is_base64(message_text):
+                    message_text = get_plain_text(message_text)
             elif part.get_content_type() == "text/html":
                 if message_html is None:
                     message_html = part.get_payload()
@@ -243,6 +246,29 @@ class EmailContentSensor(SensorEntity):
             return message_untyped_text
 
         return email_message.get_payload()
+    
+    def is_base64(self, message_text):
+        try:
+                if isinstance(message_text, str):
+                        # If there's any unicode here, an exception will be thrown and the function will return false
+                        message_text_bytes = bytes(message_text, 'ascii')
+                elif isinstance(message_text, bytes):
+                        message_text_bytes = message_text
+                else:
+                        raise ValueError("Argument must be string or bytes")
+                return base64.b64encode(base64.b64decode(message_text_bytes)) == message_text_bytes
+        except Exception:
+                return False 
+            
+    def get_plain_text(self, message_text):
+        try:
+                if isinstance(message_text, str):
+                        message_text_bytes = bytes(message_text, 'ascii')
+                elif isinstance(message_text, bytes):
+                        message_text_bytes = message_text
+                return base64.b64decode(message_text_bytes).decode('ascii')
+        except Exception:
+                return "Could Not Convert From Base64" 
 
     def update(self):
         """Read emails and publish state change."""
